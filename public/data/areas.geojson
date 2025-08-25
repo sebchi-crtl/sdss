@@ -1,0 +1,13 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Demo Area A" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[7.25,9.05],[7.45,9.05],[7.45,8.95],[7.25,8.95],[7.25,9.05]]]
+      }
+    }
+  ]
+}
