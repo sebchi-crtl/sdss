@@ -56,6 +56,18 @@ create table if not exists alert_rules (
   message text
 );
 
+-- Predictions
+create table if not exists predictions (
+  id bigserial primary key,
+  horizon_hours integer[] not null,
+  risk_scores double precision[] not null,
+  confidence_scores double precision[] not null,
+  factors jsonb,
+  recommendations text[],
+  created_at timestamptz default now()
+);
+select create_hypertable('predictions','created_at', if_not_exists => true);
+
 -- Community reports
 create table if not exists reports (
   id bigserial primary key,
@@ -73,6 +85,7 @@ alter table sensor_readings enable row level security;
 alter table alerts enable row level security;
 alter table reports enable row level security;
 alter table alert_rules enable row level security;
+alter table predictions enable row level security;
 
 -- Policies: Public read for map/analytics; writes restricted to service role or admins.
 create policy "read profiles self" on profiles for select using (auth.uid() = id);
@@ -92,3 +105,6 @@ create policy "anyone create reports" on reports for insert with check (true);
 
 create policy "public read alert_rules" on alert_rules for select using (true);
 create policy "admin write alert_rules" on alert_rules for all using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('admin')));
+
+create policy "public read predictions" on predictions for select using (true);
+create policy "service insert predictions" on predictions for insert with check (true); -- use service key via API

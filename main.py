@@ -6,6 +6,7 @@ import numpy as np
 from datetime import datetime, timedelta
 import random
 from ml_model import flood_model
+import os
 
 class Req(BaseModel):
     horizon_hours: List[int]
@@ -120,14 +121,20 @@ def health_check():
     }
 
 @app.post("/retrain")
-def retrain_model():
+def retrain_model(use_real_data: bool = True, latitude: float = 52.52, longitude: float = 13.41, days_back: int = 30):
     """Retrain the flood prediction model"""
     try:
-        results = flood_model.train_models()
+        results = flood_model.train_models(
+            use_real_data=use_real_data,
+            latitude=latitude,
+            longitude=longitude,
+            days_back=days_back
+        )
         return {
             "status": "success",
             "message": "Model retrained successfully",
-            "results": results
+            "results": results,
+            "data_source": "Real weather data" if use_real_data else "Synthetic data"
         }
     except Exception as e:
         return {
@@ -165,6 +172,119 @@ def generate_dataset(n_samples: int = 1000):
             "message": f"Failed to generate dataset: {str(e)}"
         }
 
+@app.post("/weather/ingest")
+def ingest_weather_data(latitude: float, longitude: float, type: str = "current"):
+    """Ingest weather data from Open-Meteo API"""
+    try:
+        from lib.weather_service import weather_ingestion
+        
+        if type == "current":
+            result = weather_ingestion.ingest_current_weather(latitude, longitude)
+            return {
+                "status": "success",
+                "message": "Current weather data ingested successfully",
+                "data": {
+                    "temperature": result.temperature,
+                    "humidity": result.humidity,
+                    "pressure": result.pressure,
+                    "wind_speed": result.wind_speed,
+                    "precipitation": result.precipitation,
+                    "timestamp": result.timestamp.isoformat()
+                }
+            }
+        else:
+            return {"status": "error", "message": "Only 'current' type is supported in this endpoint"}
+            
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to ingest weather data: {str(e)}"
+        }
+
+@app.get("/weather/training-data")
+def get_weather_training_data(latitude: float = 52.52, longitude: float = 13.41, days_back: int = 30):
+    """Get weather data from database for training"""
+    try:
+        from lib.weather_service import weather_ingestion
+        
+        training_data = weather_ingestion.get_weather_data_for_training(latitude, longitude, days_back)
+        
+        return {
+            "status": "success",
+            "data": training_data,
+            "count": len(training_data),
+            "location": {"latitude": latitude, "longitude": longitude},
+            "days_back": days_back
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to get weather training data: {str(e)}"
+        }
+
+@app.post("/process-sensor-data")
+def process_sensor_data(sensor_data: dict):
+    """Process incoming sensor data and trigger real-time predictions"""
+    try:
+        # Extract sensor information
+        sensor_id = sensor_data.get('sensor_id')
+        value = sensor_data.get('value')
+        sensor_type = sensor_data.get('type', 'UNKNOWN')
+        lat = sensor_data.get('lat')
+        lon = sensor_data.get('lon')
+        timestamp = sensor_data.get('ts')
+        
+        # Log the incoming data
+        print(f"Processing sensor data: {sensor_id} ({sensor_type}) = {value}")
+        
+        # For critical sensors, trigger immediate flood risk assessment
+        if sensor_type in ['RAIN', 'RIVER', 'WATER_LEVEL'] and value is not None:
+            # Get current conditions from database if available
+            current_conditions = {
+                'rainfall_24h': 0,  # Will be updated from database
+                'rainfall_7d': 0,
+                'river_level': 2.0,
+                'soil_moisture': 0.5,
+                'temperature': 25,
+                'humidity': 65,
+                'pressure': 1013,
+                'wind_speed': 3,
+                'wind_direction': 180
+            }
+            
+            # Update conditions based on sensor type
+            if sensor_type == 'RAIN':
+                current_conditions['rainfall_24h'] = value
+            elif sensor_type == 'RIVER':
+                current_conditions['river_level'] = value
+            elif sensor_type == 'WATER_LEVEL':
+                current_conditions['river_level'] = value * 2  # Convert to river level estimate
+            
+            # Get quick flood risk assessment
+            prediction = calculate_flood_risk([1, 6, 24], current_conditions)
+            
+            # Log high-risk situations
+            max_risk = max(prediction.risk)
+            if max_risk > 0.6:
+                print(f"⚠️ HIGH FLOOD RISK DETECTED: {max_risk:.2f} for sensor {sensor_id}")
+                print(f"Recommendations: {prediction.recommendations[:2]}")
+        
+        return {
+            "status": "success",
+            "message": f"Processed sensor data from {sensor_id}",
+            "sensor_id": sensor_id,
+            "value": value,
+            "type": sensor_type
+        }
+        
+    except Exception as e:
+        print(f"Error processing sensor data: {e}")
+        return {
+            "status": "error",
+            "message": f"Failed to process sensor data: {str(e)}"
+        }
+
 @app.get("/")
 def root():
     """Root endpoint with API information"""
@@ -178,6 +298,8 @@ def root():
             "POST /retrain": "Retrain the ML model",
             "GET /model/info": "Get model information",
             "GET /dataset/generate": "Generate sample dataset",
+            "POST /weather/ingest": "Ingest weather data from Open-Meteo",
+            "GET /weather/training-data": "Get weather data for training",
             "GET /": "API information"
         }
     }

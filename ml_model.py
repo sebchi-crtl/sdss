@@ -12,6 +12,8 @@ import os
 from datetime import datetime, timedelta
 import json
 from typing import Dict, List, Tuple, Any
+import requests
+from supabase import create_client, Client
 
 class FloodPredictionModel:
     def __init__(self):
@@ -22,11 +24,30 @@ class FloodPredictionModel:
         self.is_trained = False
         self.model_path = "models/"
         
+        # Initialize Supabase client for real data
+        self.supabase = None
+        self._init_supabase()
+        
         # Create models directory
         os.makedirs(self.model_path, exist_ok=True)
         
         # Load or create models
         self.load_models()
+    
+    def _init_supabase(self):
+        """Initialize Supabase client"""
+        try:
+            supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
+            supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+            
+            if supabase_url and supabase_key:
+                self.supabase = create_client(supabase_url, supabase_key)
+                print("✅ Supabase client initialized for real data access")
+            else:
+                print("⚠️ Supabase credentials not found, using synthetic data only")
+        except Exception as e:
+            print(f"⚠️ Failed to initialize Supabase: {e}")
+            self.supabase = None
     
     def generate_synthetic_dataset(self, n_samples: int = 10000) -> pd.DataFrame:
         """Generate synthetic but realistic flood prediction dataset"""
@@ -108,6 +129,148 @@ class FloodPredictionModel:
         
         return pd.DataFrame(data)
     
+    def fetch_real_weather_data(self, latitude: float = None, longitude: float = None, 
+                               days_back: int = 30) -> pd.DataFrame:
+        """Fetch real weather data from database for training"""
+        if not self.supabase:
+            print("⚠️ No database connection, falling back to synthetic data")
+            return self.generate_synthetic_dataset()
+        
+        try:
+            # Default to a sample location if not provided
+            if latitude is None or longitude is None:
+                latitude, longitude = 52.52, 13.41  # Berlin coordinates
+            
+            # Calculate date range
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days_back)
+            
+            # Get weather sensor types
+            weather_sensor_types = ['TEMP', 'HUMIDITY', 'PRESSURE', 'WIND', 'RAIN']
+            
+            # Get sensor IDs for this location
+            sensor_ids = {}
+            for sensor_type in weather_sensor_types:
+                result = self.supabase.table('sensors').select('id').eq('type', sensor_type).eq('lat', latitude).eq('lon', longitude).execute()
+                if result.data:
+                    sensor_ids[sensor_type] = result.data[0]['id']
+            
+            if not sensor_ids:
+                print(f"⚠️ No weather sensors found for location {latitude}, {longitude}")
+                return self.generate_synthetic_dataset()
+            
+            # Get readings for all sensors
+            all_readings = []
+            for sensor_type, sensor_id in sensor_ids.items():
+                result = self.supabase.table('sensor_readings').select('*').eq('sensor_id', sensor_id).gte('ts', start_date.isoformat()).lte('ts', end_date.isoformat()).order('ts').execute()
+                
+                if result.data:
+                    all_readings.extend(result.data)
+            
+            if not all_readings:
+                print("⚠️ No weather readings found in database")
+                return self.generate_synthetic_dataset()
+            
+            # Group readings by timestamp
+            grouped_data = {}
+            for reading in all_readings:
+                ts = reading['ts']
+                if ts not in grouped_data:
+                    grouped_data[ts] = {'timestamp': ts}
+                
+                # Map sensor type to reading value
+                sensor_type = None
+                for stype, sid in sensor_ids.items():
+                    if sid == reading['sensor_id']:
+                        sensor_type = stype
+                        break
+                
+                if sensor_type:
+                    # Map to weather parameter names
+                    if sensor_type == 'TEMP':
+                        grouped_data[ts]['temperature'] = reading['value']
+                    elif sensor_type == 'HUMIDITY':
+                        grouped_data[ts]['humidity'] = reading['value']
+                    elif sensor_type == 'PRESSURE':
+                        grouped_data[ts]['pressure'] = reading['value']
+                    elif sensor_type == 'WIND':
+                        grouped_data[ts]['wind_speed'] = reading['value']
+                    elif sensor_type == 'RAIN':
+                        grouped_data[ts]['precipitation'] = reading['value']
+            
+            # Convert to DataFrame
+            weather_df = pd.DataFrame(list(grouped_data.values()))
+            
+            if weather_df.empty:
+                print("⚠️ No valid weather data found")
+                return self.generate_synthetic_dataset()
+            
+            # Convert timestamp to datetime
+            weather_df['timestamp'] = pd.to_datetime(weather_df['timestamp'])
+            
+            # Calculate derived features
+            weather_df = self._calculate_derived_features(weather_df)
+            
+            # Fill missing values with reasonable defaults
+            weather_df = self._fill_missing_weather_data(weather_df)
+            
+            print(f"✅ Fetched {len(weather_df)} real weather records from database")
+            return weather_df
+            
+        except Exception as e:
+            print(f"⚠️ Error fetching real weather data: {e}")
+            return self.generate_synthetic_dataset()
+    
+    def _calculate_derived_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate derived features from weather data"""
+        # Add day of year
+        df['day_of_year'] = df['timestamp'].dt.dayofyear
+        
+        # Calculate rainfall accumulation (7-day rolling sum)
+        if 'precipitation' in df.columns:
+            df['rainfall_7d'] = df['precipitation'].rolling(window=7, min_periods=1).sum()
+            df['rainfall_24h'] = df['precipitation'].rolling(window=1, min_periods=1).sum()
+        else:
+            df['rainfall_7d'] = 0
+            df['rainfall_24h'] = 0
+        
+        # Estimate soil moisture based on rainfall and temperature
+        if 'temperature' in df.columns and 'rainfall_7d' in df.columns:
+            df['soil_moisture'] = np.clip(0.3 + (df['rainfall_7d'] * 0.05) - ((df['temperature'] - 25) * 0.01), 0, 1)
+        else:
+            df['soil_moisture'] = 0.5
+        
+        # Estimate river level based on rainfall
+        if 'rainfall_7d' in df.columns:
+            df['river_level'] = 2.0 + (df['rainfall_7d'] * 0.1) + np.random.normal(0, 0.1, len(df))
+        else:
+            df['river_level'] = 2.0
+        
+        # Add wind direction if not present
+        if 'wind_direction' not in df.columns:
+            df['wind_direction'] = np.random.uniform(0, 360, len(df))
+        
+        return df
+    
+    def _fill_missing_weather_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Fill missing weather data with reasonable defaults"""
+        defaults = {
+            'temperature': 25.0,
+            'humidity': 65.0,
+            'pressure': 1013.0,
+            'wind_speed': 3.0,
+            'wind_direction': 180.0,
+            'precipitation': 0.0
+        }
+        
+        for col, default_val in defaults.items():
+            if col in df.columns:
+                df[col] = df[col].fillna(default_val)
+            else:
+                df[col] = default_val
+        
+        return df
+    
     def prepare_features(self, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
         """Prepare features for training"""
         feature_columns = [
@@ -120,13 +283,19 @@ class FloodPredictionModel:
         
         return X, y
     
-    def train_models(self, df: pd.DataFrame = None):
+    def train_models(self, df: pd.DataFrame = None, use_real_data: bool = True, 
+                    latitude: float = None, longitude: float = None, days_back: int = 30):
         """Train the flood prediction models"""
         if df is None:
-            print("Generating synthetic dataset...")
-            df = self.generate_synthetic_dataset()
+            if use_real_data and self.supabase:
+                print("Fetching real weather data from database...")
+                df = self.fetch_real_weather_data(latitude, longitude, days_back)
+            else:
+                print("Generating synthetic dataset...")
+                df = self.generate_synthetic_dataset()
         
         print(f"Training with {len(df)} samples...")
+        print(f"Data source: {'Real weather data' if 'timestamp' in df.columns else 'Synthetic data'}")
         
         # Prepare features
         X, y = self.prepare_features(df)

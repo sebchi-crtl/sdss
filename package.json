@@ -10,7 +10,10 @@
     "mqtt:worker": "tsx scripts/mqtt-worker.ts",
     "mqtt:sim": "tsx scripts/mqtt-sim.ts",
     "alerts:evaluate": "tsx scripts/evaluate-alerts.ts",
-    "seed": "tsx scripts/seed-data.ts"
+    "seed": "tsx scripts/seed-data.ts",
+    "sync": "tsx scripts/sync-system.ts",
+    "sync:start": "tsx scripts/sync-system.ts --start",
+    "test:integration": "tsx scripts/test-integration.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",
@@ -28,6 +31,7 @@
     "maplibre-gl": "^4.7.1",
     "mqtt": "^5.14.0",
     "next": "15.3.2",
+    "node-fetch": "^3.3.2",
     "postcss": "^8.4.41",
     "react": "18.3.1",
     "react-dom": "18.3.1",

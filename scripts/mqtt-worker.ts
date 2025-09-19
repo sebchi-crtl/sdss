@@ -17,12 +17,24 @@ client.on("connect", () => {
 client.on("message", async (_topic, payload) => {
   try {
     const msg = JSON.parse(payload.toString());
-    const res = await fetch("http://localhost:3000/api/ingest", {
+    
+    // Send to Next.js API for database storage
+    const nextjsRes = await fetch("http://localhost:3000/api/ingest", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(msg)
     });
-    if (!res.ok) console.error("Ingest failed", await res.text());
+    if (!nextjsRes.ok) console.error("Next.js ingest failed", await nextjsRes.text());
+    
+    // Also send to Python ML backend for real-time processing
+    const pythonRes = await fetch("http://localhost:8200/process-sensor-data", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(msg)
+    });
+    if (!pythonRes.ok) console.error("Python ML processing failed", await pythonRes.text());
+    
+    console.log(`Processed sensor data from ${msg.sensor_id}: ${msg.value}`);
   } catch (e) {
     console.error("Message handling error", e);
   }
