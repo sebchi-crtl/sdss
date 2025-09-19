@@ -1,6 +1,6 @@
 import mqtt from "mqtt";
 
-const url = process.env.MQTT_URL || "mqtt://localhost:1883";
+const url = process.env.MQTT_URL || "mqtt://broker.hivemq.com:1883";
 const topic = process.env.MQTT_TOPIC || "sdss/sensors/+/readings";
 console.log("MQTT worker starting", { url, topic });
 

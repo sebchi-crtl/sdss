@@ -3,10 +3,78 @@
   "features": [
     {
       "type": "Feature",
-      "properties": { "name": "Demo Area A" },
+      "properties": {
+        "name": "North District",
+        "risk_level": "low",
+        "population": 15000,
+        "area_km2": 25.5
+      },
       "geometry": {
         "type": "Polygon",
-        "coordinates": [[[7.25,9.05],[7.45,9.05],[7.45,8.95],[7.25,8.95],[7.25,9.05]]]
+        "coordinates": [[
+          [7.25, 9.15],
+          [7.35, 9.15],
+          [7.35, 9.05],
+          [7.25, 9.05],
+          [7.25, 9.15]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Central District",
+        "risk_level": "medium",
+        "population": 25000,
+        "area_km2": 18.2
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [7.30, 9.05],
+          [7.40, 9.05],
+          [7.40, 8.95],
+          [7.30, 8.95],
+          [7.30, 9.05]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "South District",
+        "risk_level": "high",
+        "population": 12000,
+        "area_km2": 22.8
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [7.25, 8.95],
+          [7.35, 8.95],
+          [7.35, 8.85],
+          [7.25, 8.85],
+          [7.25, 8.95]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "River Basin",
+        "risk_level": "critical",
+        "population": 8000,
+        "area_km2": 15.3
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [7.20, 9.00],
+          [7.30, 9.00],
+          [7.30, 8.90],
+          [7.20, 8.90],
+          [7.20, 9.00]
+        ]]
       }
     }
   ]

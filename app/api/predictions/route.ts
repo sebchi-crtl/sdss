@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const url = process.env.MODEL_URL;
-  if (!url) return NextResponse.json({ error: "MODEL_URL not configured" }, { status: 500 });
+  const url = process.env.MODEL_URL || "http://localhost:8000/predict";
 
   try {
     const r = await fetch(url, {
