@@ -4,14 +4,14 @@ import mqtt from "mqtt";
 const url = process.env.MQTT_URL || "mqtt://broker.hivemq.com:1883";
 const base = "sdss/sensors";
 
-// Realistic sensor configurations
+// Realistic sensor configurations with proper UUIDs
 const sensors = [
-  { id: "rain-north", type: "RAIN", lat: 9.05, lon: 7.32, elevation: 120 },
-  { id: "rain-south", type: "RAIN", lat: 8.95, lon: 7.28, elevation: 95 },
-  { id: "river-main", type: "RIVER", lat: 9.02, lon: 7.35, elevation: 85 },
-  { id: "water-level-a", type: "WATER_LEVEL", lat: 8.98, lon: 7.31, elevation: 90 },
-  { id: "weather-central", type: "TEMP", lat: 9.0, lon: 7.33, elevation: 110 },
-  { id: "humidity-monitor", type: "HUMIDITY", lat: 9.01, lon: 7.29, elevation: 105 }
+  { id: "550e8400-e29b-41d4-a716-446655440001", type: "RAIN", lat: 9.05, lon: 7.32, elevation: 120 },
+  { id: "550e8400-e29b-41d4-a716-446655440002", type: "RAIN", lat: 8.95, lon: 7.28, elevation: 95 },
+  { id: "550e8400-e29b-41d4-a716-446655440003", type: "RIVER", lat: 9.02, lon: 7.35, elevation: 85 },
+  { id: "550e8400-e29b-41d4-a716-446655440004", type: "WATER_LEVEL", lat: 8.98, lon: 7.31, elevation: 90 },
+  { id: "550e8400-e29b-41d4-a716-446655440005", type: "TEMP", lat: 9.0, lon: 7.33, elevation: 110 },
+  { id: "550e8400-e29b-41d4-a716-446655440006", type: "HUMIDITY", lat: 9.01, lon: 7.29, elevation: 105 }
 ];
 
 // State tracking for realistic patterns
