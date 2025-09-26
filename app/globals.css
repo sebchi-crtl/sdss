@@ -120,3 +120,82 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Leaflet Map Fixes */
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+  z-index: 1;
+}
+
+.leaflet-tile-container {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.leaflet-tile {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 256px;
+  height: 256px;
+  pointer-events: none;
+}
+
+.leaflet-tile-pane {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.leaflet-map-pane {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* Ensure map container has proper dimensions */
+.map-container {
+  height: 70vh;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Fix for map tiles not connecting */
+.leaflet-tile-container img {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+/* Loading animations for sensor markers */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0.3;
+  }
+}
+
+/* Loading marker styles */
+.loading-marker {
+  animation: pulse 2s infinite;
+}
