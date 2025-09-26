@@ -78,6 +78,24 @@ create table if not exists reports (
   created_at timestamptz default now()
 );
 
+-- Nigeria States
+create table if not exists nigeria_states (
+  id bigserial primary key,
+  code text unique not null,
+  name text not null,
+  region text not null,
+  capital text,
+  latitude double precision not null,
+  longitude double precision not null,
+  population bigint,
+  area_km2 double precision,
+  flood_risk_level text check (flood_risk_level in ('low','medium','high','critical')),
+  major_rivers text[],
+  climate_zone text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 -- RLS
 alter table profiles enable row level security;
 alter table sensors enable row level security;
@@ -86,6 +104,7 @@ alter table alerts enable row level security;
 alter table reports enable row level security;
 alter table alert_rules enable row level security;
 alter table predictions enable row level security;
+alter table nigeria_states enable row level security;
 
 -- Policies: Public read for map/analytics; writes restricted to service role or admins.
 create policy "read profiles self" on profiles for select using (auth.uid() = id);
@@ -108,3 +127,7 @@ create policy "admin write alert_rules" on alert_rules for all using (exists (se
 
 create policy "public read predictions" on predictions for select using (true);
 create policy "service insert predictions" on predictions for insert with check (true); -- use service key via API
+
+create policy "public read nigeria_states" on nigeria_states for select using (true);
+create policy "admin write nigeria_states" on nigeria_states for all using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('admin','operator')));
+create policy "service write nigeria_states" on nigeria_states for all with check (true); -- use service key via API
