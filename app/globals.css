@@ -199,3 +199,23 @@
 .loading-marker {
   animation: pulse 2s infinite;
 }
+
+/* Sensor marker styles */
+.sensor-marker {
+  animation: pulse 2s infinite;
+  z-index: 1000 !important;
+}
+
+.sensor-marker:hover {
+  transform: scale(1.2);
+  transition: transform 0.2s ease;
+}
+
+/* Ensure markers are visible */
+.leaflet-marker-icon {
+  z-index: 1000 !important;
+}
+
+.leaflet-marker-pane {
+  z-index: 1000 !important;
+}
