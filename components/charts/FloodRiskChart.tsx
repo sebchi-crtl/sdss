@@ -14,8 +14,12 @@ interface FloodRiskData {
     soil_moisture: number;
     temperature: number;
     forecast_rainfall: number[];
+    model_used?: string;
+    state_risk?: string;
   };
   recommendations: string[];
+  state_code?: string;
+  region?: string;
 }
 
 async function fetchFloodRisk(): Promise<FloodRiskData> {
@@ -83,8 +87,17 @@ export default function FloodRiskChart() {
           <CardTitle>Flood Risk (Next 24–72h)</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-48 flex items-center justify-center">
+          <div className="h-48 flex flex-col items-center justify-center space-y-2">
             <div className="text-sm text-red-500">Failed to load flood risk data</div>
+            <div className="text-xs text-gray-500">
+              Make sure the Python FastAPI service is running on port 8200
+            </div>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="text-xs text-blue-500 hover:text-blue-700 underline"
+            >
+              Retry
+            </button>
           </div>
         </CardContent>
       </Card>
@@ -109,11 +122,22 @@ export default function FloodRiskChart() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           Flood Risk (Next 24–72h)
+          {data.state_code && (
+            <span className="text-sm text-gray-500">
+              - {data.state_code} {data.region && `(${data.region})`}
+            </span>
+          )}
           <span className={`flex items-center gap-1 text-sm ${riskInfo.color}`}>
             {riskInfo.icon}
             {riskInfo.level}
           </span>
         </CardTitle>
+        {data.factors.model_used && (
+          <div className="text-xs text-gray-500">
+            Model: {data.factors.model_used}
+            {data.factors.state_risk && ` | State Risk: ${data.factors.state_risk}`}
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
