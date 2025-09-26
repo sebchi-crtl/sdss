@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "leaflet/dist/leaflet.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import { Providers } from "@/lib/providers";
@@ -21,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <nav className="flex flex-wrap gap-3 text-sm">
                 <a className="hover:underline" href="/">Dashboard</a>
                 <a className="hover:underline" href="/map">Map</a>
-                <a className="hover:underline" href="/analytics">Analytics</a>
+                <a className="hover:underline" href="/nigeria-states">Nigeria States</a>
                 <a className="hover:underline" href="/sensors">Sensors</a>
                 <a className="hover:underline" href="/alerts">Alerts</a>
                 <a className="hover:underline" href="/report">Community Report</a>
