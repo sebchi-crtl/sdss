@@ -1,10 +1,13 @@
 "use client";
-import MapView from "@/components/map/MapView";
+import DynamicLeafletMap from "@/components/map/DynamicLeafletMap";
+import WeatherModal from "@/components/WeatherModal";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import RequireAuth from "@/components/RequireAuth";
 import { subscribeToReadings } from "@/lib/realtime";
+import { Cloud, MapPin } from "lucide-react";
 
 type SensorMarker = { 
   id: string; 
@@ -20,6 +23,9 @@ export default function MapPage() {
   const [markers, setMarkers] = useState<SensorMarker[]>([]);
   const [sensors, setSensors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [weatherModalOpen, setWeatherModalOpen] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<{lat: number, lon: number} | null>(null);
+  const [selectedSensor, setSelectedSensor] = useState<SensorMarker | null>(null);
 
   // Load sensors from API
   useEffect(() => {
@@ -96,12 +102,32 @@ export default function MapPage() {
 
   const statusCounts = getStatusCounts();
 
+  const handleMapClick = (lat: number, lon: number) => {
+    setSelectedLocation({ lat, lon });
+    setSelectedSensor(null); // Clear sensor selection
+    setWeatherModalOpen(true);
+  };
+
+  const handleSensorClick = (sensor: SensorMarker) => {
+    setSelectedSensor(sensor);
+    setSelectedLocation({ lat: sensor.lat, lon: sensor.lon });
+    setWeatherModalOpen(true);
+  };
+
   return (
     <RequireAuth>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Operational Map</h1>
           <div className="flex items-center gap-4">
+            <Button 
+              onClick={() => setWeatherModalOpen(true)}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Cloud className="h-4 w-4" />
+              Weather & Training
+            </Button>
             <Badge variant="outline">{markers.length} sensors</Badge>
             <div className="flex items-center gap-2 text-sm">
               <span className="text-green-600">●</span>
@@ -127,7 +153,11 @@ export default function MapPage() {
                 </div>
               </div>
             ) : (
-              <MapView markers={markers} />
+        <DynamicLeafletMap 
+          markers={markers} 
+          onMapClick={handleMapClick}
+          onSensorClick={handleSensorClick}
+        />
             )}
           </CardContent>
         </Card>
@@ -161,6 +191,19 @@ export default function MapPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Weather Modal */}
+        <WeatherModal
+          isOpen={weatherModalOpen}
+          onClose={() => {
+            setWeatherModalOpen(false);
+            setSelectedSensor(null);
+            setSelectedLocation(null);
+          }}
+          initialLatitude={selectedLocation?.lat}
+          initialLongitude={selectedLocation?.lon}
+          selectedSensor={selectedSensor}
+        />
       </div>
     </RequireAuth>
   );
