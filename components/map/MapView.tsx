@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import maplibregl, { Map } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { MapPin } from "lucide-react";
 
 type Marker = { 
   id: string; 
@@ -14,7 +15,12 @@ type Marker = {
   value?: number;
 };
 
-export default function MapView({ markers = [] as Marker[] }) {
+interface MapViewProps {
+  markers?: Marker[];
+  onMapClick?: (lat: number, lon: number) => void;
+}
+
+export default function MapView({ markers = [] as Marker[], onMapClick }: MapViewProps) {
   const mapRef = useRef<Map | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -43,6 +49,17 @@ export default function MapView({ markers = [] as Marker[] }) {
 
       map.on("load", () => {
         setMapLoaded(true);
+        
+        // Add click handler for map
+        if (onMapClick) {
+          map.on("click", (e) => {
+            const { lng, lat } = e.lngLat;
+            onMapClick(lat, lng);
+          });
+          
+          // Change cursor to pointer to indicate clickable
+          map.getCanvas().style.cursor = "crosshair";
+        }
         
         // Add local areas overlay (public/data/areas.geojson)
         fetch("/data/areas.geojson")
@@ -197,19 +214,27 @@ export default function MapView({ markers = [] as Marker[] }) {
           </div>
         </div>
       )}
-      <div className="mt-2 flex items-center gap-4 text-sm text-gray-600">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-green-600"></div>
-          <span>OK</span>
+      <div className="mt-2 flex items-center justify-between text-sm text-gray-600">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-green-600"></div>
+            <span>OK</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <span>Warning</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-600"></div>
+            <span>Critical</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-          <span>Warning</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-red-600"></div>
-          <span>Critical</span>
-        </div>
+        {onMapClick && (
+          <div className="flex items-center gap-2 text-blue-600">
+            <MapPin className="h-4 w-4" />
+            <span>Click map to get weather data</span>
+          </div>
+        )}
       </div>
     </div>
   );
