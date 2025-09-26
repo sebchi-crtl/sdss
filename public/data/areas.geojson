@@ -4,76 +4,176 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "North District",
-        "risk_level": "low",
-        "population": 15000,
-        "area_km2": 25.5
-      },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[
-          [7.25, 9.15],
-          [7.35, 9.15],
-          [7.35, 9.05],
-          [7.25, 9.05],
-          [7.25, 9.15]
-        ]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "name": "Central District",
-        "risk_level": "medium",
-        "population": 25000,
-        "area_km2": 18.2
-      },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[
-          [7.30, 9.05],
-          [7.40, 9.05],
-          [7.40, 8.95],
-          [7.30, 8.95],
-          [7.30, 9.05]
-        ]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "name": "South District",
-        "risk_level": "high",
-        "population": 12000,
-        "area_km2": 22.8
-      },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[
-          [7.25, 8.95],
-          [7.35, 8.95],
-          [7.35, 8.85],
-          [7.25, 8.85],
-          [7.25, 8.95]
-        ]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "name": "River Basin",
+        "name": "Lagos",
+        "state_code": "LA",
+        "region": "South West",
         "risk_level": "critical",
-        "population": 8000,
-        "area_km2": 15.3
+        "population": 12000000,
+        "area_km2": 3345,
+        "capital": "Ikeja"
       },
       "geometry": {
         "type": "Polygon",
         "coordinates": [[
-          [7.20, 9.00],
-          [7.30, 9.00],
-          [7.30, 8.90],
-          [7.20, 8.90],
-          [7.20, 9.00]
+          [3.2, 6.4],
+          [3.6, 6.4],
+          [3.6, 6.7],
+          [3.2, 6.7],
+          [3.2, 6.4]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Rivers",
+        "state_code": "RI",
+        "region": "South South",
+        "risk_level": "critical",
+        "population": 5200000,
+        "area_km2": 11077,
+        "capital": "Port Harcourt"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [6.8, 4.5],
+          [7.2, 4.5],
+          [7.2, 4.9],
+          [6.8, 4.9],
+          [6.8, 4.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Delta",
+        "state_code": "DE",
+        "region": "South South",
+        "risk_level": "critical",
+        "population": 4200000,
+        "area_km2": 17698,
+        "capital": "Asaba"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [6.0, 5.5],
+          [6.4, 5.5],
+          [6.4, 6.0],
+          [6.0, 6.0],
+          [6.0, 5.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Anambra",
+        "state_code": "AN",
+        "region": "South East",
+        "risk_level": "critical",
+        "population": 4178000,
+        "area_km2": 4844,
+        "capital": "Awka"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [6.8, 6.0],
+          [7.2, 6.0],
+          [7.2, 6.4],
+          [6.8, 6.4],
+          [6.8, 6.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Bayelsa",
+        "state_code": "BY",
+        "region": "South South",
+        "risk_level": "critical",
+        "population": 1734000,
+        "area_km2": 10773,
+        "capital": "Yenagoa"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [6.0, 4.5],
+          [6.4, 4.5],
+          [6.4, 5.0],
+          [6.0, 5.0],
+          [6.0, 4.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Abuja (FCT)",
+        "state_code": "FCT",
+        "region": "North Central",
+        "risk_level": "medium",
+        "population": 356412,
+        "area_km2": 1769,
+        "capital": "Abuja"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [7.2, 8.9],
+          [7.4, 8.9],
+          [7.4, 9.1],
+          [7.2, 9.1],
+          [7.2, 8.9]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kano",
+        "state_code": "KN",
+        "region": "North West",
+        "risk_level": "low",
+        "population": 9902000,
+        "area_km2": 20131,
+        "capital": "Kano"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.3, 11.8],
+          [8.7, 11.8],
+          [8.7, 12.2],
+          [8.3, 12.2],
+          [8.3, 11.8]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Benue",
+        "state_code": "BE",
+        "region": "North Central",
+        "risk_level": "high",
+        "population": 4735123,
+        "area_km2": 34059,
+        "capital": "Makurdi"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.3, 7.5],
+          [8.7, 7.5],
+          [8.7, 7.9],
+          [8.3, 7.9],
+          [8.3, 7.5]
         ]]
       }
     }

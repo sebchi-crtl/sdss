@@ -1,0 +1,22 @@
+{
+  "trained_at": "2025-09-26T10:59:27.403303",
+  "is_trained": true,
+  "model_type": "gradient_boosting",
+  "feature_columns": [
+    "temperature",
+    "humidity",
+    "pressure",
+    "wind_speed",
+    "wind_direction",
+    "precipitation",
+    "rainfall_24h",
+    "rainfall_7d",
+    "soil_moisture",
+    "river_level",
+    "day_of_year",
+    "month",
+    "state_encoded",
+    "region_encoded"
+  ],
+  "nigeria_states_count": 37
+}
