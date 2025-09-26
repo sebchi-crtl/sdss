@@ -58,13 +58,14 @@ export async function GET() {
       }
     }
 
-    // Get predictions from Python ML backend
+    // Get predictions from Python ML backend (Nigeria-focused)
     const r = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ 
         horizon_hours: [1, 6, 24, 48, 72],
-        current_conditions: currentConditions
+        current_conditions: currentConditions,
+        state_code: "FCT" // Default to Abuja, can be made configurable
       })
     });
     
