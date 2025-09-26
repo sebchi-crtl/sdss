@@ -1,16 +1,31 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import uvicorn
 import numpy as np
 from datetime import datetime, timedelta
 import random
-from ml_model import flood_model
 import os
+import sys
 
-class Req(BaseModel):
+# Add lib directory to path for imports
+sys.path.append(os.path.join(os.path.dirname(__file__), 'lib'))
+
+from ml_training_pipeline import nigeria_ml_pipeline, TrainingConfig
+from nigeria_weather_service import (
+    nigeria_weather_service, 
+    nigeria_weather_ingestion,
+    get_nigeria_state_weather,
+    get_nigeria_weather_forecast,
+    ingest_nigeria_weather_data,
+    get_nigeria_weather_training_data
+)
+
+class PredictionRequest(BaseModel):
     horizon_hours: List[int]
     current_conditions: Dict[str, Any] = {}
+    state_code: Optional[str] = None
 
 class PredictionResponse(BaseModel):
     horizon: List[int]
@@ -18,12 +33,42 @@ class PredictionResponse(BaseModel):
     confidence: List[float]
     factors: Dict[str, Any]
     recommendations: List[str]
+    state_code: Optional[str] = None
+    region: Optional[str] = None
 
-app = FastAPI(title="SDSS Flood Prediction API", version="2.0.0")
+class WeatherIngestRequest(BaseModel):
+    state_code: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    type: str = "current"
 
-def calculate_flood_risk(horizon_hours: List[int], conditions: Dict[str, Any]) -> PredictionResponse:
+class TrainingRequest(BaseModel):
+    use_real_data: bool = True
+    state_codes: Optional[List[str]] = None
+    days_back: int = 30
+    model_type: str = "gradient_boosting"
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+app = FastAPI(
+    title="Nigeria SDSS Flood Prediction API", 
+    version="3.0.0",
+    description="Enhanced flood prediction system for Nigeria states using Open-Meteo weather data and ML models"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Next.js dev server
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
+
+def calculate_nigeria_flood_risk(horizon_hours: List[int], conditions: Dict[str, Any], 
+                                state_code: str = None) -> PredictionResponse:
     """
-    Enhanced flood risk prediction using trained ML model
+    Enhanced flood risk prediction using Nigeria-trained ML model
     """
     # Get current conditions or use defaults
     current_conditions = {
@@ -38,8 +83,8 @@ def calculate_flood_risk(horizon_hours: List[int], conditions: Dict[str, Any]) -
         'wind_direction': conditions.get('wind_direction', random.uniform(0, 360))
     }
     
-    # Get base prediction from ML model
-    base_prediction = flood_model.predict_flood_risk(current_conditions)
+    # Get base prediction from Nigeria ML model
+    base_prediction = nigeria_ml_pipeline.predict_flood_risk(current_conditions, state_code)
     base_risk = base_prediction['flood_risk']
     base_confidence = base_prediction['confidence']
     
@@ -100,15 +145,18 @@ def calculate_flood_risk(horizon_hours: List[int], conditions: Dict[str, Any]) -
             "humidity": round(current_conditions['humidity'], 1),
             "pressure": round(current_conditions['pressure'], 1),
             "forecast_rainfall": [round(r, 1) for r in forecast_rainfall],
-            "model_used": "GradientBoostingRegressor" if flood_model.is_trained else "Simple"
+            "model_used": "Nigeria GradientBoostingRegressor" if nigeria_ml_pipeline.is_trained else "Simple",
+            "state_risk": base_prediction.get('factors', {}).get('state_risk', 'medium')
         },
-        recommendations=recommendations
+        recommendations=recommendations,
+        state_code=state_code,
+        region=base_prediction.get('region')
     )
 
 @app.post("/predict", response_model=PredictionResponse)
-def predict(req: Req):
-    """Predict flood risk for given time horizons"""
-    return calculate_flood_risk(req.horizon_hours, req.current_conditions)
+def predict(req: PredictionRequest):
+    """Predict flood risk for given time horizons in Nigeria states"""
+    return calculate_nigeria_flood_risk(req.horizon_hours, req.current_conditions, req.state_code)
 
 @app.get("/health")
 def health_check():
@@ -116,84 +164,131 @@ def health_check():
     return {
         "status": "healthy", 
         "timestamp": datetime.now().isoformat(),
-        "model_trained": flood_model.is_trained,
-        "model_type": "GradientBoostingRegressor" if flood_model.is_trained else "Simple"
+        "model_trained": nigeria_ml_pipeline.is_trained,
+        "model_type": "Nigeria GradientBoostingRegressor" if nigeria_ml_pipeline.is_trained else "Simple",
+        "nigeria_states_supported": len(nigeria_ml_pipeline.nigeria_states),
+        "api_version": "3.0.0"
     }
 
 @app.post("/retrain")
-def retrain_model(use_real_data: bool = True, latitude: float = 52.52, longitude: float = 13.41, days_back: int = 30):
-    """Retrain the flood prediction model"""
+def retrain_model(req: TrainingRequest):
+    """Retrain the Nigeria flood prediction model"""
     try:
-        results = flood_model.train_models(
-            use_real_data=use_real_data,
-            latitude=latitude,
-            longitude=longitude,
-            days_back=days_back
+        # Update training config
+        config = TrainingConfig(
+            model_type=req.model_type,
+            n_estimators=100,
+            learning_rate=0.1,
+            max_depth=6
+        )
+        
+        # Update pipeline config
+        nigeria_ml_pipeline.config = config
+        
+        results = nigeria_ml_pipeline.train_model(
+            use_real_data=req.use_real_data,
+            state_codes=req.state_codes,
+            days_back=req.days_back
         )
         return {
             "status": "success",
-            "message": "Model retrained successfully",
+            "message": "Nigeria model retrained successfully",
             "results": results,
-            "data_source": "Real weather data" if use_real_data else "Synthetic data"
+            "data_source": "Real weather data" if req.use_real_data else "Synthetic data",
+            "states_trained": req.state_codes or "All Nigeria states"
         }
     except Exception as e:
         return {
             "status": "error",
-            "message": f"Failed to retrain model: {str(e)}"
+            "message": f"Failed to retrain Nigeria model: {str(e)}"
         }
 
 @app.get("/model/info")
 def model_info():
-    """Get information about the current model"""
+    """Get information about the current Nigeria model"""
     return {
-        "is_trained": flood_model.is_trained,
-        "model_type": "GradientBoostingRegressor" if flood_model.is_trained else "Simple",
-        "features": [
-            "temperature", "humidity", "pressure", "rainfall_24h", "rainfall_7d",
-            "river_level", "soil_moisture", "wind_speed", "wind_direction", "day_of_year"
-        ],
-        "model_path": flood_model.model_path
+        "is_trained": nigeria_ml_pipeline.is_trained,
+        "model_type": "Nigeria GradientBoostingRegressor" if nigeria_ml_pipeline.is_trained else "Simple",
+        "features": nigeria_ml_pipeline.feature_columns,
+        "model_path": nigeria_ml_pipeline.model_path,
+        "nigeria_states_count": len(nigeria_ml_pipeline.nigeria_states),
+        "supported_states": list(nigeria_ml_pipeline.nigeria_states.keys())
     }
 
 @app.get("/dataset/generate")
 def generate_dataset(n_samples: int = 1000):
-    """Generate a sample dataset for training"""
+    """Generate a sample Nigeria dataset for training"""
     try:
-        df = flood_model.generate_synthetic_dataset(n_samples)
+        df = nigeria_ml_pipeline.generate_nigeria_synthetic_dataset(n_samples)
         return {
             "status": "success",
             "samples": len(df),
             "columns": list(df.columns),
+            "states_included": df['state_code'].nunique(),
+            "regions_included": df['region'].nunique(),
             "sample_data": df.head().to_dict('records')
         }
     except Exception as e:
         return {
             "status": "error",
-            "message": f"Failed to generate dataset: {str(e)}"
+            "message": f"Failed to generate Nigeria dataset: {str(e)}"
         }
 
 @app.post("/weather/ingest")
-def ingest_weather_data(latitude: float, longitude: float, type: str = "current"):
-    """Ingest weather data from Open-Meteo API"""
+def ingest_weather_data(req: WeatherIngestRequest):
+    """Ingest weather data from Open-Meteo API for Nigeria states"""
     try:
-        from lib.weather_service import weather_ingestion
-        
-        if type == "current":
-            result = weather_ingestion.ingest_current_weather(latitude, longitude)
+        if req.state_code:
+            # Ingest for specific state
+            result = nigeria_weather_ingestion.ingest_state_weather(req.state_code)
             return {
                 "status": "success",
-                "message": "Current weather data ingested successfully",
+                "message": f"Weather data ingested successfully for {req.state_code}",
                 "data": {
+                    "state_code": result.state_code,
+                    "region": result.region,
+                    "latitude": result.latitude,
+                    "longitude": result.longitude,
                     "temperature": result.temperature,
                     "humidity": result.humidity,
                     "pressure": result.pressure,
                     "wind_speed": result.wind_speed,
+                    "wind_direction": result.wind_direction,
+                    "precipitation": result.precipitation,
+                    "rainfall_24h": result.rainfall_24h,
+                    "rainfall_7d": result.rainfall_7d,
+                    "soil_moisture": result.soil_moisture,
+                    "river_level": result.river_level,
+                    "timestamp": result.timestamp.isoformat()
+                }
+            }
+        elif req.latitude and req.longitude:
+            # Ingest for specific coordinates
+            result = nigeria_weather_service.get_current_weather(req.latitude, req.longitude)
+            return {
+                "status": "success",
+                "message": "Weather data ingested successfully for coordinates",
+                "data": {
+                    "latitude": result.latitude,
+                    "longitude": result.longitude,
+                    "temperature": result.temperature,
+                    "humidity": result.humidity,
+                    "pressure": result.pressure,
+                    "wind_speed": result.wind_speed,
+                    "wind_direction": result.wind_direction,
                     "precipitation": result.precipitation,
                     "timestamp": result.timestamp.isoformat()
                 }
             }
         else:
-            return {"status": "error", "message": "Only 'current' type is supported in this endpoint"}
+            # Ingest for all states
+            results = nigeria_weather_ingestion.ingest_all_states_weather()
+            return {
+                "status": "success",
+                "message": f"Weather data ingested successfully for {len(results)} states",
+                "states_processed": list(results.keys()),
+                "total_states": len(results)
+            }
             
     except Exception as e:
         return {
@@ -202,25 +297,28 @@ def ingest_weather_data(latitude: float, longitude: float, type: str = "current"
         }
 
 @app.get("/weather/training-data")
-def get_weather_training_data(latitude: float = 52.52, longitude: float = 13.41, days_back: int = 30):
-    """Get weather data from database for training"""
+def get_weather_training_data(state_codes: str = None, days_back: int = 30):
+    """Get weather data from database for training Nigeria models"""
     try:
-        from lib.weather_service import weather_ingestion
+        # Parse state codes if provided
+        state_list = None
+        if state_codes:
+            state_list = [code.strip().upper() for code in state_codes.split(',')]
         
-        training_data = weather_ingestion.get_weather_data_for_training(latitude, longitude, days_back)
+        training_data = get_nigeria_weather_training_data(state_list, days_back)
         
         return {
             "status": "success",
             "data": training_data,
             "count": len(training_data),
-            "location": {"latitude": latitude, "longitude": longitude},
+            "states_requested": state_list or "All Nigeria states",
             "days_back": days_back
         }
         
     except Exception as e:
         return {
             "status": "error",
-            "message": f"Failed to get weather training data: {str(e)}"
+            "message": f"Failed to get Nigeria weather training data: {str(e)}"
         }
 
 @app.post("/process-sensor-data")
@@ -285,21 +383,109 @@ def process_sensor_data(sensor_data: dict):
             "message": f"Failed to process sensor data: {str(e)}"
         }
 
+# New Nigeria-specific endpoints
+@app.get("/nigeria/states")
+def get_nigeria_states():
+    """Get list of all Nigeria states with their information"""
+    return {
+        "status": "success",
+        "states": nigeria_ml_pipeline.nigeria_states,
+        "total_states": len(nigeria_ml_pipeline.nigeria_states)
+    }
+
+@app.get("/nigeria/states/{state_code}/weather")
+def get_state_weather(state_code: str):
+    """Get current weather data for a specific Nigeria state"""
+    try:
+        weather_data = get_nigeria_state_weather(state_code.upper())
+        return {
+            "status": "success",
+            "state_code": weather_data.state_code,
+            "region": weather_data.region,
+            "weather": {
+                "temperature": weather_data.temperature,
+                "humidity": weather_data.humidity,
+                "pressure": weather_data.pressure,
+                "wind_speed": weather_data.wind_speed,
+                "wind_direction": weather_data.wind_direction,
+                "precipitation": weather_data.precipitation,
+                "rainfall_24h": weather_data.rainfall_24h,
+                "rainfall_7d": weather_data.rainfall_7d,
+                "soil_moisture": weather_data.soil_moisture,
+                "river_level": weather_data.river_level,
+                "timestamp": weather_data.timestamp.isoformat()
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to get weather for {state_code}: {str(e)}")
+
+@app.get("/nigeria/states/{state_code}/forecast")
+def get_state_forecast(state_code: str, days: int = 7):
+    """Get weather forecast for a specific Nigeria state"""
+    try:
+        forecast_data = get_nigeria_weather_forecast(state_code.upper(), days)
+        return {
+            "status": "success",
+            "state_code": state_code.upper(),
+            "forecast_days": days,
+            "forecast": [
+                {
+                    "date": f.timestamp.isoformat(),
+                    "temperature": f.temperature,
+                    "humidity": f.humidity,
+                    "pressure": f.pressure,
+                    "wind_speed": f.wind_speed,
+                    "wind_direction": f.wind_direction,
+                    "precipitation": f.precipitation,
+                    "precipitation_probability": f.precipitation_probability
+                }
+                for f in forecast_data
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to get forecast for {state_code}: {str(e)}")
+
+@app.get("/nigeria/regions")
+def get_nigeria_regions():
+    """Get Nigeria regions with their states"""
+    regions = {}
+    for state_code, state_info in nigeria_ml_pipeline.nigeria_states.items():
+        region = state_info['region']
+        if region not in regions:
+            regions[region] = []
+        regions[region].append({
+            "code": state_code,
+            "name": state_info['name'],
+            "flood_risk": state_info['flood_risk']
+        })
+    
+    return {
+        "status": "success",
+        "regions": regions,
+        "total_regions": len(regions)
+    }
+
 @app.get("/")
 def root():
     """Root endpoint with API information"""
     return {
-        "name": "SDSS Flood Prediction API",
-        "version": "2.0.0",
-        "model_status": "Trained" if flood_model.is_trained else "Not Trained",
+        "name": "Nigeria SDSS Flood Prediction API",
+        "version": "3.0.0",
+        "description": "Enhanced flood prediction system for Nigeria states using Open-Meteo weather data and ML models",
+        "model_status": "Trained" if nigeria_ml_pipeline.is_trained else "Not Trained",
+        "nigeria_states_supported": len(nigeria_ml_pipeline.nigeria_states),
         "endpoints": {
-            "POST /predict": "Get flood risk predictions",
+            "POST /predict": "Get flood risk predictions for Nigeria states",
             "GET /health": "Health check",
-            "POST /retrain": "Retrain the ML model",
-            "GET /model/info": "Get model information",
-            "GET /dataset/generate": "Generate sample dataset",
-            "POST /weather/ingest": "Ingest weather data from Open-Meteo",
+            "POST /retrain": "Retrain the Nigeria ML model",
+            "GET /model/info": "Get Nigeria model information",
+            "GET /dataset/generate": "Generate Nigeria sample dataset",
+            "POST /weather/ingest": "Ingest weather data for Nigeria states",
             "GET /weather/training-data": "Get weather data for training",
+            "GET /nigeria/states": "Get all Nigeria states information",
+            "GET /nigeria/states/{state_code}/weather": "Get current weather for a state",
+            "GET /nigeria/states/{state_code}/forecast": "Get weather forecast for a state",
+            "GET /nigeria/regions": "Get Nigeria regions and their states",
             "GET /": "API information"
         }
     }
